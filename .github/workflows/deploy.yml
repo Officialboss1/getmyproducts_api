@@ -1,0 +1,51 @@
+# /.github/workflows/deploy.yml in your BACKEND repository
+
+name: Deploy Backend to Production
+
+# Triggers on a push to the 'main' branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend and Restart Server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Deploy Source Code via FTP
+        uses: samkirkland/ftp-deploy-action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          # ❗️ IMPORTANT: Update this to your API's directory on the server
+          server-dir: /home/your_user/sales-tracker-api/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            .github/**
+
+      - name: Create .env file on server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo "${{ secrets.PRODUCTION_ENV_FILE }}" > /home/your_user/sales-tracker-api/.env
+
+      - name: Install Dependencies and Restart Server via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /home/your_user/sales-tracker-api
+            npm install --production
+            pm2 restart sales-tracker-api
