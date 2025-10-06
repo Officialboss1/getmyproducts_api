@@ -31,8 +31,8 @@ export const getUserProgress = async (req, res) => {
     const start = getPeriodRange(period);
     const requestedUserId = req.params.userId || req.user.id;
 
-    // Restrict sales_person to only their own progress
-    if (req.user.role === "sales_person" && requestedUserId !== req.user.id) {
+    // Restrict salesperson to only their own progress
+    if (req.user.role === "salesperson" && requestedUserId !== req.user.id) {
       return res.status(403).json({ message: "Forbidden: You can only view your own progress" });
     }
 

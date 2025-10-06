@@ -41,7 +41,7 @@ export const createSale = async (req, res) => {
 export const getSales = async (req, res) => {
   try {
     let filter = {};
-    if (req.user.role === "sales_person") filter.user_id = req.user._id;
+    if (req.user.role === "salesperson") filter.user_id = req.user._id;
 
     const sales = await Sale.find(filter).populate("product_id user_id", "name email firstName lastName");
     res.json(sales);
