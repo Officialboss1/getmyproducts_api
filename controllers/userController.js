@@ -21,7 +21,7 @@ export const registerUser = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, salt);
 
     // 🚨 Prevent arbitrary role escalation
-    if (role === "super_admin") role = "sales_person";
+    if (role === "super_admin") role = "salesperson";
 
     const user = await User.create({ firstName, lastName, email, passwordHash, role });
 
@@ -79,7 +79,7 @@ export const updateUserRole = async (req, res) => {
     const { id } = req.params;
     const { role } = req.body;
 
-    const validRoles = ["sales_person", "admin", "super_admin"];
+    const validRoles = ["salesperson", "admin", "super_admin"];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ message: "Invalid role specified" });
     }

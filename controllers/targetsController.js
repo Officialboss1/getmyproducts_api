@@ -32,7 +32,7 @@ export const getTarget = async (req, res) => {
   try {
     const requestedUserId = req.params.userId || req.user.id;
 
-    if (req.user.role === "sales_person" && requestedUserId !== req.user.id) {
+    if (req.user.role === "salesperson" && requestedUserId !== req.user.id) {
       return res.status(403).json({ message: "Forbidden: You can only view your own target" });
     }
 

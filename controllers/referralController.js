@@ -24,15 +24,16 @@ export const getReferralLink = async (req, res) => {
       await user.save();
     }
 
-        // Use environment BASE_URL or request origin
-    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+    // Use your FRONTEND URL for shareable referral links
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const referralLink = `${frontendUrl}/register?ref=${user.referralCode}`;
 
-    const referralLink = `${baseUrl}/register?ref=${user.referralCode}`;
     res.json({ referralLink, code: user.referralCode });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Track customer registration via referral
 export const registerWithReferral = async (salesPersonId, customerId) => {
@@ -86,5 +87,60 @@ export const checkReferralPromotion = async (salesPersonId) => {
     }
   } catch (error) {
     console.error("Promotion check failed:", error);
+  }
+};
+
+
+// Get all referrals belonging to the logged-in salesperson
+export const getMyReferrals = async (req, res) => {
+  try {
+    const referrals = await Referral.find({ salesPerson: req.user._id })
+      .populate('customer', 'name email createdAt')
+      .populate('salesPerson', 'name')
+      .sort({ createdAt: -1 });
+
+      const formatted = referrals.map(r => ({
+        id: r._id,
+        name: r.customer?.name || 'Unnamed',
+        email: r.customer?.email || 'N/A',
+        joinDate: r.customer?.createdAt || r.createdAt,
+        status: r.status,
+        salesCount: Sale.countDocuments({ user: r.customer?._id }),
+    }));
+
+    res.json(formatted);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get referral statistics for the logged-in salesperson
+export const getReferralStats = async (req, res) => {
+  try {
+    const referrals = await Referral.find({ salesPerson: req.user._id });
+    const activeReferrals = referrals.filter(r => r.status === 'active').length;
+    const totalSales = await Sale.countDocuments({ referrer: req.user._id });
+    const totalRevenue = (await Sale.aggregate([
+      { $match: { referrer: req.user._id } },
+      { $group: { _id: null, total: { $sum: '$total_amount' } } },
+    ]))[0]?.total || 0;
+
+    const stats = {
+      totalReferrals: referrals.length,
+      activeReferrals,
+      totalSales,
+      totalRevenue,
+      yourBonus: totalRevenue * 0.05,
+      progress: {
+        referrals: { current: activeReferrals, target: 5 },
+        sales: { current: totalSales, target: 75 },
+      },
+      isTeamHead: req.user.role === 'team_head',
+      teamHeadProgress: Math.min(100, ((activeReferrals / 5) * 50 + (totalSales / 75) * 50)),
+    };
+
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
