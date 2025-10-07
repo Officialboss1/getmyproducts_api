@@ -49,3 +49,50 @@ export const updateReferralSettings = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// GET activity settings (who counts as 'active')
+export const getActivitySettings = async (req, res) => {
+  try {
+    if (!["super_admin", "admin"].includes(req.user.role)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    let activity = await Setting.findOne({ key: "activity" });
+    if (!activity) {
+      // defaults: consider users active if they logged in or had sales in the last 30 days
+      activity = {
+        key: "activity",
+        value: { salespersonActiveDays: 30, customerActiveDays: 30 },
+      };
+    }
+
+    res.json(activity.value);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// UPDATE activity settings
+export const updateActivitySettings = async (req, res) => {
+  try {
+    if (!["super_admin", "admin"].includes(req.user.role)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const { salespersonActiveDays, customerActiveDays } = req.body;
+
+    if (typeof salespersonActiveDays !== 'number' || typeof customerActiveDays !== 'number') {
+      return res.status(400).json({ message: "Invalid payload - expected numeric days" });
+    }
+
+    const activity = await Setting.findOneAndUpdate(
+      { key: "activity" },
+      { value: { salespersonActiveDays, customerActiveDays } },
+      { new: true, upsert: true }
+    );
+
+    res.json({ message: "Activity settings updated", activity: activity.value });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

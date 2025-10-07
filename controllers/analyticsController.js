@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import Sale from "../models/Sale.js";
 import User from "../models/User.js";
 import Target from "../models/Target.js";
+import Customer from "../models/CustomerCode.js";
+import Competition from "../models/Competition.js";
 
 // Helper: get start-of-period date
 const getPeriodRange = (period) => {
@@ -24,19 +26,87 @@ const getPeriodRange = (period) => {
   return start;
 };
 
-// 🎯 USER PROGRESS
+// SYSTEM ANALYTICS — used by ADMIN DASHBOARD
+export const getSystemAnalytics = async (req, res) => {
+  try {
+    const totalSales = await Sale.countDocuments();
+    const totalRevenueAgg = await Sale.aggregate([
+      { $group: { _id: null, totalRevenue: { $sum: "$total_amount" } } },
+    ]);
+    const totalRevenue = totalRevenueAgg[0]?.totalRevenue || 0;
+
+    // Load activity settings (defaults if not set)
+    let activitySettings = { salespersonActiveDays: 30, customerActiveDays: 30 };
+    try {
+      const settingDoc = await import("../models/Setting.js");
+      const Setting = settingDoc.default;
+      const activity = await Setting.findOne({ key: "activity" });
+      if (activity && activity.value) activitySettings = { ...activitySettings, ...activity.value };
+    } catch (err) {
+      // if settings model import fails for any reason, fall back to defaults
+      console.warn("Could not load activity settings, using defaults", err.message);
+    }
+
+    const now = new Date();
+    const salespersonSince = new Date(now.getTime() - (activitySettings.salespersonActiveDays || 30) * 24 * 60 * 60 * 1000);
+    const customerSince = new Date(now.getTime() - (activitySettings.customerActiveDays || 30) * 24 * 60 * 60 * 1000);
+
+    const activeSalespersons = await User.countDocuments({
+      role: "salesperson",
+      $or: [
+        { lastLogin: { $gte: salespersonSince } },
+        { lastSaleDate: { $gte: salespersonSince } },
+      ],
+    });
+
+    const activeCustomers = await User.countDocuments({
+      role: "customer",
+      lastLogin: { $gte: customerSince },
+    });
+
+    // Count competitions that are currently active by flag or by date range
+    const nowDate = new Date();
+    const ongoingCompetitions = await Competition.countDocuments({
+      $or: [
+        { isActive: true },
+        { startDate: { $lte: nowDate }, endDate: { $gte: nowDate } },
+      ],
+    });
+
+    // Estimate target achievement (monthly basis)
+    // If activeSalespersons is zero, fall back to total registered salespersons
+    const totalSalespersonsCount = await User.countDocuments({ role: 'salesperson' });
+    const totalTargets = (activeSalespersons > 0 ? activeSalespersons : totalSalespersonsCount) * 900; // default monthly target
+    const targetAchievement = totalTargets > 0 ? ((totalSales / totalTargets) * 100).toFixed(1) : 0;
+
+    res.status(200).json({
+      totalSales,
+      totalRevenue,
+      activeSalespersons,
+      activeCustomers,
+      ongoingCompetitions,
+      targetAchievement: Number(targetAchievement),
+      activitySettings,
+    });
+  } catch (error) {
+    console.error("System Analytics Error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to fetch system analytics", error: error.message });
+  }
+};
+
+// USER PROGRESS
 export const getUserProgress = async (req, res) => {
   try {
     const { period = "monthly" } = req.query;
     const start = getPeriodRange(period);
     const requestedUserId = req.params.userId || req.user.id;
 
-    // Restrict salesperson to only their own progress
     if (req.user.role === "salesperson" && requestedUserId !== req.user.id) {
       return res.status(403).json({ message: "Forbidden: You can only view your own progress" });
     }
 
-    // Fetch sales for this user in this period
     const sales = await Sale.aggregate([
       { $match: { user_id: new mongoose.Types.ObjectId(requestedUserId), sale_date: { $gte: start } } },
       {
@@ -49,16 +119,12 @@ export const getUserProgress = async (req, res) => {
     ]);
 
     const totals = sales[0] || { totalUnits: 0, totalRevenue: 0 };
-
-    // Step 1: check for custom target
     let targetDoc = await Target.findOne({ user_id: requestedUserId });
     const defaults = { daily: 30, weekly: 210, monthly: 900 };
-
     const target = targetDoc && targetDoc[period] ? targetDoc[period] : defaults[period];
 
-    // Step 2: calculate percentage & status
     const percentage = ((totals.totalUnits / target) * 100).toFixed(2);
-    let status =
+    const status =
       totals.totalUnits >= target
         ? "Target Met"
         : totals.totalUnits >= target / 2
@@ -80,12 +146,11 @@ export const getUserProgress = async (req, res) => {
   }
 };
 
-// 🏆 LEADERBOARD
+// LEADERBOARD
 export const getLeaderboard = async (req, res) => {
   try {
     const { period = "monthly", metric = "units", product } = req.query;
     const start = getPeriodRange(period);
-
     const matchStage = { sale_date: { $gte: start } };
     if (product) matchStage.product_name = product;
 
@@ -125,18 +190,14 @@ export const getLeaderboard = async (req, res) => {
   }
 };
 
-// 📊 DAILY SALES (PER USER)
+// DAILY SALES (PER USER)
 export const getDailySalesByUser = async (req, res) => {
   try {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
     const dailySales = await Sale.aggregate([
-      {
-        $match: {
-          sale_date: { $gte: startOfDay },
-        },
-      },
+      { $match: { sale_date: { $gte: startOfDay } } },
       {
         $group: {
           _id: "$user_id",

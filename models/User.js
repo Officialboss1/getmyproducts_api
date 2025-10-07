@@ -32,6 +32,10 @@ const userSchema = new mongoose.Schema(
 
     // Team linkage
     team_id: { type: mongoose.Schema.Types.ObjectId, ref: "Team" },
+
+      //Activity tracking
+        lastLogin: { type: Date }, 
+        lastSaleDate: { type: Date },  
   },
   { timestamps: true }
 );

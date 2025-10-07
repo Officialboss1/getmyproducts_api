@@ -13,6 +13,8 @@ import targetsRoutes from "./routes/targetsRoutes.js";
 import customerCodeRoutes from "./routes/customerCodeRoutes.js";
 import settingRoutes from "./routes/settingRoutes.js";
 import referralRoutes from "./routes/referralRoutes.js";
+import systemHealth from "./routes/systemRoutes.js";
+import superAdminRoutes from "./routes/superAdminRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -36,6 +38,8 @@ app.use("/api/targets", targetsRoutes);
 app.use("/api/customer-codes", customerCodeRoutes);
 app.use("/api/settings", settingRoutes);
 app.use("/api/referrals", referralRoutes)
+app.use("/api/system", systemHealth);
+app.use("/api", superAdminRoutes);
 
 
 

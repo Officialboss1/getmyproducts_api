@@ -19,6 +19,7 @@ export const createSale = async (req, res) => {
     const price_per_unit_at_sale = product.current_price;
     const total_amount = quantity_sold * price_per_unit_at_sale;
 
+
     const sale = await Sale.create({
       user_id: req.user._id,
       product_id,
@@ -28,6 +29,7 @@ export const createSale = async (req, res) => {
       total_amount,
       sale_date,
     });
+
 
     res.status(201).json(sale);
     await checkPromotion(req.user._id);
