@@ -4,6 +4,8 @@ import User from "../models/User.js";
 import Target from "../models/Target.js";
 import Customer from "../models/CustomerCode.js";
 import Competition from "../models/Competition.js";
+import { Parser } from 'json2csv';
+import ExcelJS from 'exceljs';
 
 // Helper: get start-of-period date
 const getPeriodRange = (period) => {
@@ -234,5 +236,55 @@ export const getDailySalesByUser = async (req, res) => {
   } catch (error) {
     console.error("Daily Sales error:", error);
     res.status(500).json({ message: "Failed to fetch daily sales per user" });
+  }
+};
+
+// EXPORT ANALYTICS
+export const exportAnalytics = async (req, res) => {
+  try {
+    const { format = 'csv' } = req.query;
+
+    // Fetch all sales data for analytics export
+    const sales = await Sale.find({})
+      .populate('user_id', 'firstName lastName')
+      .sort({ sale_date: -1 });
+
+    const data = sales.map(sale => ({
+      date: sale.sale_date.toISOString().split('T')[0],
+      user: `${sale.user_id.firstName} ${sale.user_id.lastName}`,
+      product: sale.product_name,
+      quantity: sale.quantity_sold,
+      amount: sale.total_amount,
+      receiver: sale.receiver_email
+    }));
+
+    if (format === 'csv') {
+      const parser = new Parser();
+      const csv = parser.parse(data);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="analytics.csv"');
+      res.send(csv);
+    } else if (format === 'excel') {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Analytics');
+      worksheet.columns = [
+        { header: 'Date', key: 'date' },
+        { header: 'User', key: 'user' },
+        { header: 'Product', key: 'product' },
+        { header: 'Quantity', key: 'quantity' },
+        { header: 'Amount', key: 'amount' },
+        { header: 'Receiver', key: 'receiver' }
+      ];
+      worksheet.addRows(data);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="analytics.xlsx"');
+      await workbook.xlsx.write(res);
+      res.end();
+    } else {
+      res.status(400).json({ message: 'Invalid format. Use csv or excel.' });
+    }
+  } catch (error) {
+    console.error("Export Analytics error:", error);
+    res.status(500).json({ message: "Failed to export analytics" });
   }
 };

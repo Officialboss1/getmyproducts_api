@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import CustomerCode from "../models/CustomerCode.js";
 import Referral from "../models/Referral.js";
+import nodemailer from "nodemailer";
 
 const generateToken = (id, role) =>
   jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "30d" });
@@ -121,5 +122,97 @@ export const loginUser = async (req, res) => {
   } catch (error) {
     console.error("Error in loginUser:", error.message);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// @desc    Forgot password - send reset email
+// @route   POST /api/auth/forgot-password
+// @access  Public
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Generate reset token (JWT with short expiration)
+    const resetToken = jwt.sign(
+      { id: user._id, type: 'password_reset' },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    // Create transporter with flexible SMTP configuration
+    const transporter = nodemailer.createTransporter({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for other ports
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      },
+      // Additional options for better compatibility
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: 'Password Reset Request',
+      html: `
+        <h2>Password Reset</h2>
+        <p>You requested a password reset for your Sales Tracker account.</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}">Reset Password</a>
+        <p>This link will expire in 15 minutes.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({ message: "Password reset email sent" });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Failed to send reset email" });
+  }
+};
+
+// @desc    Reset password with token
+// @route   POST /api/auth/reset-password
+// @access  Public
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "Token and new password are required" });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.type !== 'password_reset') {
+      return res.status(400).json({ message: "Invalid reset token" });
+    }
+
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    user.passwordHash = passwordHash;
+    await user.save();
+
+    res.json({ message: "Password reset successfully" });
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(400).json({ message: "Invalid or expired reset token" });
+    }
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Failed to reset password" });
   }
 };

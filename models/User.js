@@ -32,6 +32,24 @@ const userSchema = new mongoose.Schema(
 
     // Team linkage
     team_id: { type: mongoose.Schema.Types.ObjectId, ref: "Team" },
+    // Additional fields for super admin pages
+    phone: { type: String },
+    status: { type: String, enum: ['active', 'inactive', 'suspended'], default: 'active' },
+    notes: { type: String },
+    lastActive: { type: Date },
+    company: { type: String },
+    position: { type: String },
+    avatar: { type: String },
+    totalOrders: { type: Number, default: 0 },
+    totalSpent: { type: Number, default: 0 },
+    lastOrder: { type: Date },
+    joinDate: { type: Date },
+    address: { type: String },
+    team: { type: String },
+    admin: { type: Boolean, default: false },
+    performance: { type: Number, default: 0 },
+    totalSales: { type: Number, default: 0 },
+    isTeamHead: { type: Boolean, default: false },
 
       //Activity tracking
         lastLogin: { type: Date }, 

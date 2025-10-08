@@ -2,6 +2,7 @@
 import Competition from "../models/Competition.js";
 import Sale from "../models/Sale.js";
 import User from "../models/User.js";
+import Activity from "../models/Activitymodel.js";
 
 /* =========================================
  * CREATE COMPETITION (Admin / Super Admin only)
@@ -24,10 +25,54 @@ export const createCompetition = async (req, res) => {
       createdBy: req.user.id,
     });
 
+    // Log activity
+    await Activity.create({
+      user: req.user._id,
+      action: "create competition",
+      details: `Created competition: ${name}`,
+    });
+
     res.status(201).json(competition);
   } catch (err) {
     console.error("Competition create error:", err);
     res.status(500).json({ message: "Failed to create competition", error: err.message });
+  }
+};
+
+/* =========================================
+ * CREATE GLOBAL COMPETITION (Super Admin only)
+ * Accessible to all users (participants array empty)
+ * ========================================= */
+export const createGlobalCompetition = async (req, res) => {
+  try {
+    if (req.user.role !== "super_admin") {
+      return res.status(403).json({ message: "Only super admins can create global competitions" });
+    }
+
+    const { name, description, metric, product, startDate, endDate } = req.body;
+
+    const competition = await Competition.create({
+      name,
+      description,
+      metric,
+      product,
+      startDate,
+      endDate,
+      createdBy: req.user.id,
+      // participants: [] // empty array means all users participate
+    });
+
+    // Log activity
+    await Activity.create({
+      user: req.user._id,
+      action: "create global competition",
+      details: `Created global competition: ${name}`,
+    });
+
+    res.status(201).json(competition);
+  } catch (err) {
+    console.error("Global competition create error:", err);
+    res.status(500).json({ message: "Failed to create global competition", error: err.message });
   }
 };
 
@@ -63,7 +108,7 @@ export const getCompetitionLeaderboard = async (req, res) => {
     // Collect participant IDs
     const participantIds = (competition.participants || []).map((p) => p.user).filter(Boolean);
 
-    // Build sales query filter
+    // Build sales query filter - show all-time data for competition leaderboard
     const match = {
       sale_date: { $gte: competition.startDate, $lte: competition.endDate },
     };
@@ -182,8 +227,10 @@ export const leaveCompetition = async (req, res) => {
  * ========================================= */
 export default {
   createCompetition,
+  createGlobalCompetition,
   getCompetitions,
   getCompetitionLeaderboard,
+  getCompetitionById,
   joinCompetition,
   leaveCompetition,
 };

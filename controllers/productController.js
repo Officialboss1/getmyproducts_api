@@ -1,4 +1,5 @@
 import Product from "../models/Product.js";
+import Activity from "../models/Activitymodel.js";
 
 // @desc Get all products (active & inactive for super_admins)
 export const getProducts = async (req, res) => {
@@ -25,6 +26,13 @@ export const createProduct = async (req, res) => {
       is_active,
     });
 
+    // Log activity
+    await Activity.create({
+      user: req.user._id,
+      action: "create product",
+      details: `Created new product: ${name}`,
+    });
+
     res.status(201).json(product);
   } catch (error) {
     res.status(500).json({ message: "Failed to create product" });
@@ -43,6 +51,14 @@ export const updateProduct = async (req, res) => {
     product.is_active = req.body.is_active ?? product.is_active;
 
     const updated = await product.save();
+
+    // Log activity
+    await Activity.create({
+      user: req.user._id,
+      action: "update product",
+      details: `Updated product: ${product.name}`,
+    });
+
     res.json(updated);
   } catch (error) {
     res.status(500).json({ message: "Failed to update product" });

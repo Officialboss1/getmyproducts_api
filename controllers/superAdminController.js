@@ -10,7 +10,7 @@ export const getSalesSummary = async (req, res) => {
 
     // total revenue from all sales
     const revenueAgg = await Sale.aggregate([
-      { $group: { _id: null, totalRevenue: { $sum: "$amount" } } }
+      { $group: { _id: null, totalRevenue: { $sum: "$total_amount" } } }
     ]);
     const totalRevenue = revenueAgg[0]?.totalRevenue || 0;
 
@@ -20,20 +20,43 @@ export const getSalesSummary = async (req, res) => {
       { $lookup: {
           from: "sales",
           localField: "_id",
-          foreignField: "salesperson",
+          foreignField: "user_id",
           as: "sales"
         }
       },
       { $addFields: { totalSales: { $size: "$sales" } } },
       { $sort: { totalSales: -1 } },
       { $limit: 5 },
-      { $project: { name: 1, totalSales: 1 } }
+      { $project: {
+          _id: 1,
+          name: { $concat: ["$firstName", " ", "$lastName"] },
+          totalSales: 1
+        }
+      }
     ]);
+
+    // system health calculation: percentage of salespersons with at least one sale
+    const totalSalespersons = await User.countDocuments({ role: "salesperson" });
+    const activeSalespersonsAgg = await User.aggregate([
+      { $match: { role: "salesperson" } },
+      { $lookup: {
+          from: "sales",
+          localField: "_id",
+          foreignField: "user_id",
+          as: "sales"
+        }
+      },
+      { $match: { "sales.0": { $exists: true } } },
+      { $count: "active" }
+    ]);
+    const activeCount = activeSalespersonsAgg[0]?.active || 0;
+    const systemHealth = totalSalespersons > 0 ? Math.round((activeCount / totalSalespersons) * 100) : 100;
 
     res.json({
       totalSales,
       totalRevenue,
-      topPerformers
+      topPerformers,
+      systemHealth
     });
   } catch (err) {
     console.error("Error fetching sales summary:", err);
@@ -45,6 +68,7 @@ export const getSalesSummary = async (req, res) => {
 export const getRecentActivities = async (req, res) => {
   try {
     const activities = await Activity.find()
+      .populate('user', 'firstName lastName')
       .sort({ createdAt: -1 })
       .limit(10);
 
