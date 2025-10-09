@@ -87,13 +87,12 @@ jobs:
           server: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           port: 22
-          private_key: ${{ secrets.SSH_KEY }}
+          ssh_private_key: ${{ secrets.SSH_KEY }}
           local_path: "./"
           remote_path: "/home/silversp/salestrackerback.silverspringbank.com/"
-          exclude: |
-            **/.git*
-            **/node_modules/**
-            .github/**
+          sftp_only: true
+          sftpArgs: "-o StrictHostKeyChecking=no"
+          delete_remote_files: false
 
       - name: 🧩 Create .env file on server
         uses: appleboy/ssh-action@master
