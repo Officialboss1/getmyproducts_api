@@ -1,5 +1,5 @@
 import express from "express";
-import { registerUser, loginUser, getAllUsers, createAdmin, updateUser, deleteUser, sendMessage, getUserProfile, updateUserProfile, deleteAvatar } from "../controllers/userController.js";
+import { registerUser, loginUser, getAllUsers, createUser, createAdmin, updateUser, deleteUser, sendMessage, getUserProfile, updateUserProfile, deleteAvatar } from "../controllers/userController.js";
 import { updateUserRole } from "../controllers/userController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import avatarUpload from "../middleware/avatarUploadMiddleware.js";
@@ -10,6 +10,7 @@ console.log('userRoutes loaded');
 
 router.post("/register", registerUser);
 router.post("/login", loginUser);
+router.post("/", protect, createUser); // Admin/Super Admin can create users
 router.post("/admin", protect, createAdmin);
 router.put("/:id", protect, updateUser);
 router.put("/:id/role", protect, updateUserRole);
