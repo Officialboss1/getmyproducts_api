@@ -21,12 +21,10 @@ jobs:
           cache: 'npm'
 
       - name: 📦 Install Backend Dependencies
-        working-directory: ./backend
         run: npm install --production
 
-      # Optional build step (uncomment if using TypeScript or build commands)
+      # Optional build step (uncomment if you use TypeScript or have a build process)
       # - name: 🏗️ Build Backend
-      #   working-directory: ./backend
       #   run: npm run build
 
       - name: 🚀 Deploy Backend via FTP
@@ -35,7 +33,7 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./backend/
+          local-dir: ./
           server-dir: /home/silversp/salestrackerback.silverspringbank.com/
           protocol: ftp
           port: 21
@@ -47,7 +45,7 @@ jobs:
             **/test/**
             **/*.log
 
-      # 🧩 Create .env file on server (temporarily disabled - no SSH access)
+      # 🧩 SSH steps commented out (no access yet)
       # - name: 🧩 Create .env file on server
       #   uses: appleboy/ssh-action@master
       #   with:
@@ -57,7 +55,6 @@ jobs:
       #     script: |
       #       echo "${{ secrets.PRODUCTION_ENV_FILE }}" > /home/silversp/salestrackerback.silverspringbank.com/.env
 
-      # 🔄 Restart PM2 Process (temporarily disabled - no SSH access)
       # - name: 🔄 Restart PM2 Process
       #   uses: appleboy/ssh-action@master
       #   with:
