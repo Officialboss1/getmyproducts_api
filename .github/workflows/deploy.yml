@@ -77,7 +77,7 @@ jobs:
       - name: 📦 Install Dependencies
         run: npm install --production
 
-      # 🔧 Optional build step (for TypeScript or builds)
+      # Optional build step (uncomment if needed)
       # - name: 🏗️ Build Backend
       #   run: npm run build
 
@@ -90,9 +90,7 @@ jobs:
           ssh_private_key: ${{ secrets.SSH_KEY }}
           local_path: "./"
           remote_path: "/home/silversp/salestrackerback.silverspringbank.com/"
-          sftp_only: true
-          sftpArgs: "-o StrictHostKeyChecking=no"
-          delete_remote_files: false
+          exclude: ".git*,node_modules/**,.github/**"
 
       - name: 🧩 Create .env file on server
         uses: appleboy/ssh-action@master
