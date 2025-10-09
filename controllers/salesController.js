@@ -4,6 +4,7 @@ import Product from "../models/Product.js";
 import Referral from "../models/Referral.js";
 import Team from "../models/Team.js";
 import Setting from "../models/Setting.js";
+import Activity from "../models/Activitymodel.js";
 
 // @desc Create new sale (price is locked at transaction time)
 export const createSale = async (req, res) => {
@@ -19,6 +20,7 @@ export const createSale = async (req, res) => {
     const price_per_unit_at_sale = product.current_price;
     const total_amount = quantity_sold * price_per_unit_at_sale;
 
+
     const sale = await Sale.create({
       user_id: req.user._id,
       product_id,
@@ -27,6 +29,13 @@ export const createSale = async (req, res) => {
       price_per_unit_at_sale,
       total_amount,
       sale_date,
+    });
+
+    // Log activity
+    await Activity.create({
+      user: req.user._id,
+      action: "create sale",
+      details: `Created sale for ${quantity_sold} units of ${product.name} to ${receiver_email}`,
     });
 
     res.status(201).json(sale);
@@ -138,10 +147,10 @@ const { requiredReferrals, requiredSalesPerReferral } = referralSettings?.value 
         members: validRefs
       });
 
-      // Audit log entry
-      await Audit.create({
+      // Activity log entry
+      await Activity.create({
         user: referrerId,
-        action: "PROMOTION",
+        action: "promotion",
         details: `User promoted to Team Head with ${validRefs.length} members`
       });
     }

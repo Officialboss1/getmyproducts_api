@@ -10,6 +10,12 @@ const competitionSchema = new mongoose.Schema(
     endDate: { type: Date, required: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     isActive: { type: Boolean, default: true },
+    participants: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        joinedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );
