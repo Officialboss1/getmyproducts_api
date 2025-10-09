@@ -52,7 +52,6 @@
 
 
 
-
 name: Deploy Backend to Production (SFTP Method)
 
 on:
@@ -78,7 +77,7 @@ jobs:
       - name: 📦 Install Dependencies
         run: npm install --production
 
-      # 🔧 Optional: Build step (only if your backend needs to be built, e.g. TypeScript)
+      # 🔧 Optional build step (for TypeScript or builds)
       # - name: 🏗️ Build Backend
       #   run: npm run build
 
@@ -89,16 +88,28 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           port: 22
           private_key: ${{ secrets.SSH_KEY }}
-          local_path: "./" 
+          local_path: "./"
           remote_path: "/home/silversp/salestrackerback.silverspringbank.com/"
           exclude: |
             **/.git*
             **/node_modules/**
             .github/**
 
-      # Optional: Notify server or external service after deployment
-      - name: 🔄 Notify Server (Optional)
-        run: |
-          curl -X POST https://salestrackerback.silverspringbank.com/restart \
-          -H "Authorization: Bearer ${{ secrets.RESTART_TOKEN }}"
-        continue-on-error: true
+      - name: 🧩 Create .env file on server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo "${{ secrets.PRODUCTION_ENV_FILE }}" > /home/silversp/salestrackerback.silverspringbank.com/.env
+
+      - name: 🔄 Restart API (optional)
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /home/silversp/salestrackerback.silverspringbank.com
+            pm2 restart sales-tracker-api || pm2 start server.js --name sales-tracker-api
