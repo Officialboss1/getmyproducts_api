@@ -3,14 +3,13 @@ import dotenv from "dotenv";
 import Setting from "./models/Setting.js";
 import Sale from "./models/Sale.js";
 import User from "./models/User.js";
-import Product from "./models/Product.js";
 import Activity from "./models/Activitymodel.js";
 
 dotenv.config();
 
 const seedActivitiesForExistingSales = async () => {
   try {
-    const sales = await Sale.find().populate('user_id product_id');
+    const sales = await Sale.find().populate('user_id');
     console.log(`Found ${sales.length} sales to create activities for`);
 
     for (const sale of sales) {
@@ -24,7 +23,7 @@ const seedActivitiesForExistingSales = async () => {
         await Activity.create({
           user: sale.user_id,
           action: "create sale",
-          details: `Created sale for ${sale.quantity_sold} units of ${sale.product_id?.name || 'Unknown Product'} to ${sale.receiver_email}`,
+          details: `Created sale for ${sale.quantity_sold} units to ${sale.receiver_email}`,
           createdAt: sale.createdAt,
           updatedAt: sale.updatedAt
         });

@@ -20,7 +20,7 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: "All required fields must be provided" });
     }
 
-    // Check for duplicate email
+    // Check email duplicate
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: "Email already registered" });
@@ -28,15 +28,16 @@ export const register = async (req, res) => {
 
     // Role-specific logic
     if (role === "customer") {
+      // Validate customer code
       const regCode = await CustomerCode.findOne({ code: customerCode, isActive: true });
       if (!regCode) {
         return res.status(400).json({ message: "Invalid or inactive customer code" });
       }
-
       if (regCode.usageLimit && regCode.usageCount >= regCode.usageLimit) {
         return res.status(400).json({ message: "Customer code usage limit reached" });
       }
 
+      // Update usage
       regCode.usageCount += 1;
       if (regCode.usageLimit && regCode.usageCount >= regCode.usageLimit) {
         regCode.isActive = false;
@@ -44,10 +45,10 @@ export const register = async (req, res) => {
       await regCode.save();
     }
 
-    // Hash the password and map correctly to passwordHash
+    // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create new user document
+    // Create user
     const user = new User({
       firstName,
       lastName,
@@ -57,7 +58,7 @@ export const register = async (req, res) => {
     });
     await user.save();
 
-    // Handle referral logic for salesperson
+    // If salesperson has referral
     if (role === "salesperson" && referralCode) {
       const referrer = await User.findOne({ referralCode, role: "salesperson" });
       if (referrer) {
@@ -69,14 +70,13 @@ export const register = async (req, res) => {
       }
     }
 
-    // Generate JWT
+    // JWT
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // Return success
     res.status(201).json({
       message: "Registration successful",
       token,
@@ -85,80 +85,12 @@ export const register = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        role: user.role,
-        referralCode: user.referralCode
+        role: user.role
       }
     });
-
   } catch (error) {
-    console.error("=== REGISTRATION ERROR DETAILS ===");
-
-    // Handle Mongoose validation errors
-    if (error.name === 'ValidationError') {
-      console.error("VALIDATION ERROR:");
-      const validationErrors = {};
-
-      for (let field in error.errors) {
-        const fieldError = error.errors[field];
-        validationErrors[field] = {
-          message: fieldError.message,
-          value: fieldError.value,
-          kind: fieldError.kind,
-          path: fieldError.path
-        };
-
-        console.error(`Field: ${field}`);
-        console.error(`  Message: ${fieldError.message}`);
-        console.error(`  Value: ${fieldError.value}`);
-        console.error(`  Kind: ${fieldError.kind}`);
-        console.error(`  Path: ${fieldError.path}`);
-        console.error("---");
-      }
-
-      return res.status(400).json({
-        message: "Validation failed",
-        errors: validationErrors,
-        errorType: "ValidationError"
-      });
-    }
-
-    // Handle MongoDB duplicate key errors (code 11000)
-    if (error.code === 11000) {
-      console.error("DUPLICATE KEY ERROR:");
-      const field = Object.keys(error.keyValue)[0];
-      const value = error.keyValue[field];
-
-      console.error(`Duplicate field: ${field}`);
-      console.error(`Duplicate value: ${value}`);
-      console.error(`Error code: ${error.code}`);
-      console.error(`Key pattern:`, error.keyPattern);
-
-      let message = "Duplicate entry";
-      if (field === 'email') {
-        message = "Email already registered";
-      } else if (field === 'referralCode') {
-        message = "Referral code already exists";
-      }
-
-      return res.status(400).json({
-        message: message,
-        field: field,
-        value: value,
-        errorType: "DuplicateKeyError",
-        code: error.code
-      });
-    }
-
-    // Handle other errors
-    console.error("OTHER ERROR:");
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
-    console.error("Error stack:", error.stack);
-
-    res.status(500).json({
-      message: "Server error",
-      errorType: error.name || "UnknownError"
-    });
+    console.error("Register error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
