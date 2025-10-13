@@ -1,28 +1,39 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import dotenvSafe from 'dotenv-safe';
 import connectDB from './config/db.js';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 
-// Routes
-import authRoutes from './src/routes/authRoutes.js';
-import userRoutes from './src/routes/userRoutes.js';
-import salesRoutes from './src/routes/salesRoutes.js';
-import chatRoutes from './src/routes/chatRoutes.js';
-import analyticsRoutes from './src/routes/analyticsRoutes.js';
-import auditRoutes from './src/routes/auditRoutes.js';
-import targetsRoutes from './src/routes/targetsRoutes.js';
-import competitionRoutes from './src/routes/competitionRoutes.js';
-import customerCodeRoutes from './src/routes/customerCodeRoutes.js';
-import productRoutes from './src/routes/productRoutes.js';
-import orderRoutes from './src/routes/orderRoutes.js';
-import referralRoutes from './src/routes/referralRoutes.js';
-import settingRoutes from './src/routes/settingRoutes.js';
-import superAdminRoutes from './src/routes/superAdminRoutes.js';
-import systemRoutes from './src/routes/systemRoutes.js';
+// Import routes
+import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import salesRoutes from './routes/salesRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
+import analyticsRoutes from './routes/analyticsRoutes.js';
+import auditRoutes from './routes/auditRoutes.js';
+import targetsRoutes from './routes/targetsRoutes.js';
+import competitionRoutes from './routes/competitionRoutes.js';
+import customerCodeRoutes from './routes/customerCodeRoutes.js';
+import productRoutes from './routes/productRoutes.js';
+import referralRoutes from './routes/referralRoutes.js';
+import settingRoutes from './routes/settingRoutes.js';
+import superAdminRoutes from './routes/superAdminRoutes.js';
+import systemRoutes from './routes/systemRoutes.js';
 
+// Import middleware
+import errorHandler from './middlewares/errorHandler.js';
+import { apiLimiter } from './middlewares/rateLimitMiddleware.js';
+
+// Load environment variables
 dotenv.config();
+dotenvSafe.config({
+  example: '.env.example',
+  allowEmptyValues: false
+});
+
+// Connect to database
 connectDB();
 
 const app = express();
@@ -31,18 +42,21 @@ const server = createServer(app);
 // Socket.IO setup for real-time chat
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
     methods: ["GET", "POST"]
   }
 });
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: process.env.FRONTEND_URL || "http://localhost:5173",
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Rate limiting
+app.use('/api/', apiLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -55,11 +69,19 @@ app.use('/api/targets', targetsRoutes);
 app.use('/api/competitions', competitionRoutes);
 app.use('/api/customer-codes', customerCodeRoutes);
 app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes);
 app.use('/api/referrals', referralRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/system', systemRoutes);
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -116,8 +138,8 @@ io.on('connection', (socket) => {
 // Make io accessible in routes
 app.set('io', io);
 
-const PORT = process.env.PORT || 5000;
+// Global error handling middleware (must be last)
+app.use(errorHandler);
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+export default app;
+export { server, io };

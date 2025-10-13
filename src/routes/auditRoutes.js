@@ -1,7 +1,7 @@
 import express from "express";
 import { getAuditLogs, getRecentAuditActivities, exportAuditLogs} from "../controllers/auditController.js";
-import { protect } from "../middleware/authMiddleware.js";
-import { adminOrSuper } from "../middleware/roleMiddleware.js";
+import { protect } from "../middlewares/authMiddleware.js";
+import { adminOrSuper } from "../middlewares/roleMiddleware.js";
 
 const router = express.Router();
 

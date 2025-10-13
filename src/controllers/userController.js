@@ -130,70 +130,6 @@ export const updateUserRole = async (req, res) => {
 };
 
 
-// @desc Create a new user (Admin or Super Admin)
-export const createUser = async (req, res) => {
-  try {
-    if (!["super_admin", "admin"].includes(req.user.role)) {
-      return res.status(403).json({ message: "Forbidden: Insufficient permissions" });
-    }
-
-    const { firstName, lastName, email, password, role, phone, company } = req.body;
-
-    if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    const emailLower = email.toLowerCase();
-
-    const userExists = await User.findOne({ email: emailLower });
-    if (userExists) return res.status(400).json({ message: "User already exists" });
-
-    // Validate role permissions
-    const allowedRoles = req.user.role === "super_admin"
-      ? ["salesperson", "admin", "super_admin", "customer", "team_head"]
-      : ["salesperson", "customer", "team_head"];
-
-    if (!allowedRoles.includes(role)) {
-      return res.status(400).json({ message: `Invalid role. Allowed roles: ${allowedRoles.join(", ")}` });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-
-    const user = await User.create({
-      firstName,
-      lastName,
-      email: emailLower,
-      passwordHash,
-      role: role || "salesperson",
-      phone,
-      company,
-    });
-
-    console.log('User created successfully in DB:', { _id: user._id, email: user.email, role: user.role });
-
-    // Log activity
-    await Activity.create({
-      user: req.user._id,
-      action: "create user",
-      details: `Created new ${role}: ${firstName} ${lastName}`,
-    });
-
-    res.status(201).json({
-      _id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      role: user.role,
-      phone: user.phone,
-      company: user.company,
-    });
-  } catch (err) {
-    console.error("Create user error:", err);
-    res.status(500).json({ message: "Server error during user creation" });
-  }
-};
-
 // @desc Create a new admin (Super Admin only)
 export const createAdmin = async (req, res) => {
   try {
@@ -337,17 +273,11 @@ export const getAllUsers = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    const { role, sort, page = 1, limit = 10, all = false } = req.query;
-    console.log('getAllUsers called with query params:', req.query);
+    const { role, sort, page = 1, limit = 10 } = req.query;
 
     let filter = {};
     if (role) {
-      if (role === 'sales_team') {
-        // Special case: include both salesperson and team_head roles
-        filter.role = { $in: ['salesperson', 'team_head'] };
-      } else {
-        filter.role = role;
-      }
+      filter.role = role;
     }
 
     let sortOption = {};
@@ -357,74 +287,36 @@ export const getAllUsers = async (req, res) => {
       sortOption[sortField] = sortOrder;
     }
 
-    // If role is salesperson, return all users without pagination
-    if (role === 'salesperson') {
-      console.log('Fetching all users with filter:', filter);
-      const users = await User.find(filter)
-        .sort(sortOption)
-        .select("-passwordHash"); // exclude sensitive info
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const users = await User.find(filter)
+      .sort(sortOption)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .select("-passwordHash"); // exclude sensitive info
 
-      console.log(`Fetched ${users.length} users for role: ${role || 'all'}`);
-      console.log('Sample users:', users.slice(0, 3).map(u => ({ email: u.email, role: u.role })));
-      // Also log total count of salesperson users
-      const totalSalespersons = await User.countDocuments({ role: 'salesperson' });
-      console.log(`Total salesperson users in DB: ${totalSalespersons}`);
-
-      // Calculate totalOrders, totalSpent, and lastOrder for each user
-      for (let user of users) {
-        const agg = await Sale.aggregate([
-          { $match: { user_id: user._id } },
-          { $group: {
-            _id: null,
-            totalOrders: { $sum: 1 },
-            totalSpent: { $sum: "$total_amount" },
-            lastOrder: { $max: "$sale_date" }
-          } }
-        ]);
-        if (agg.length > 0) {
-          user.totalOrders = agg[0].totalOrders;
-          user.totalSpent = agg[0].totalSpent;
-          user.lastOrder = agg[0].lastOrder;
-        } else {
-          user.totalOrders = 0;
-          user.totalSpent = 0;
-          user.lastOrder = null;
-        }
+    // Calculate totalOrders, totalSpent, and lastOrder for each user
+    for (let user of users) {
+      const agg = await Sale.aggregate([
+        { $match: { user_id: user._id } },
+        { $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          totalSpent: { $sum: "$total_amount" },
+          lastOrder: { $max: "$sale_date" }
+        } }
+      ]);
+      if (agg.length > 0) {
+        user.totalOrders = agg[0].totalOrders;
+        user.totalSpent = agg[0].totalSpent;
+        user.lastOrder = agg[0].lastOrder;
+      } else {
+        user.totalOrders = 0;
+        user.totalSpent = 0;
+        user.lastOrder = null;
       }
+    }
 
-      res.json(users);
-    } else {
-      // Server-side pagination (existing logic)
-      const skip = (parseInt(page) - 1) * parseInt(limit);
-      const users = await User.find(filter)
-        .sort(sortOption)
-        .skip(skip)
-        .limit(parseInt(limit))
-        .select("-passwordHash"); // exclude sensitive info
-
-      // Calculate totalOrders, totalSpent, and lastOrder for each user
-      for (let user of users) {
-        const agg = await Sale.aggregate([
-          { $match: { user_id: user._id } },
-          { $group: {
-            _id: null,
-            totalOrders: { $sum: 1 },
-            totalSpent: { $sum: "$total_amount" },
-            lastOrder: { $max: "$sale_date" }
-          } }
-        ]);
-        if (agg.length > 0) {
-          user.totalOrders = agg[0].totalOrders;
-          user.totalSpent = agg[0].totalSpent;
-          user.lastOrder = agg[0].lastOrder;
-        } else {
-          user.totalOrders = 0;
-          user.totalSpent = 0;
-          user.lastOrder = null;
-        }
-      }
-
-      const total = await User.countDocuments(filter);
+    const total = await User.countDocuments(filter);
 
     res.json({
       users: users.map(user => ({
