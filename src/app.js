@@ -39,18 +39,63 @@ connectDB();
 const app = express();
 const server = createServer(app);
 
+// Parse allowed origins from .env (comma separated)
+const allowedOrigins = process.env.FRONTEND_URLS
+  ? process.env.FRONTEND_URLS.split(",").map(url => url.trim())
+  : [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:3000",
+      "https://salestracker.silverspringbank.com"
+    ];
+
 // Socket.IO setup for real-time chat
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    methods: ["GET", "POST"]
-  }
+    origin: [
+      "https://getmyproducts.com",
+      "https://salestracker.silverspringbank.com",
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:3000"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+
+console.log('Socket.IO server initialized with config:', {
+  corsOrigins: allowedOrigins,
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  timestamp: new Date().toISOString()
 });
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
-  credentials: true
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Allow any localhost during development
+    if (origin.startsWith("http://localhost:")) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Not allowed by CORS: " + origin));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -85,18 +130,34 @@ app.get('/api/health', (req, res) => {
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  console.log('User connected:', socket.id, {
+    handshake: {
+      auth: socket.handshake.auth,
+      headers: socket.handshake.headers,
+      query: socket.handshake.query,
+      address: socket.handshake.address,
+      time: new Date().toISOString()
+    }
+  });
 
   // Join chat room
   socket.on('join-chat', (chatId) => {
     socket.join(chatId);
-    console.log(`User ${socket.id} joined chat ${chatId}`);
+    console.log(`User ${socket.id} joined chat ${chatId}`, {
+      chatId,
+      socketId: socket.id,
+      timestamp: new Date().toISOString()
+    });
   });
 
   // Leave chat room
   socket.on('leave-chat', (chatId) => {
     socket.leave(chatId);
-    console.log(`User ${socket.id} left chat ${chatId}`);
+    console.log(`User ${socket.id} left chat ${chatId}`, {
+      chatId,
+      socketId: socket.id,
+      timestamp: new Date().toISOString()
+    });
   });
 
   // Handle new message
@@ -130,8 +191,11 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('chat_reopened', data);
   });
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+  socket.on('disconnect', (reason) => {
+    console.log('User disconnected:', socket.id, {
+      reason,
+      timestamp: new Date().toISOString()
+    });
   });
 });
 

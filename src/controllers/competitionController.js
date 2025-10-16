@@ -77,11 +77,14 @@ export const createGlobalCompetition = async (req, res) => {
 };
 
 /* =========================================
- * GET ONGOING COMPETITIONS
- * (Active or within date range)
- * ========================================= */
+  * GET ONGOING COMPETITIONS
+  * (Active or within date range)
+  * ========================================= */
 export const getCompetitions = async (req, res) => {
   try {
+    console.log("getCompetitions called");
+    console.log("req.user:", req.user);
+
     const now = new Date();
     const competitions = await Competition.find({
       $or: [{ isActive: true }, { startDate: { $lte: now }, endDate: { $gte: now } }],
@@ -89,6 +92,7 @@ export const getCompetitions = async (req, res) => {
       .populate("participants.user", "firstName lastName email role")
       .sort({ startDate: -1 });
 
+    console.log("Found competitions:", competitions.length);
     res.json(competitions);
   } catch (err) {
     console.error("Competition fetch error:", err);
