@@ -70,9 +70,14 @@ export const getProduct = async (req, res) => {
   }
 };
 
-// Create product
+// Create product (Admin & Super Admin only)
 export const createProduct = async (req, res) => {
   try {
+    // Check role permissions - allow both admin and super_admin
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied. Admin or Super Admin role required.' });
+    }
+
     const { name, description, current_price, is_active } = req.body;
 
     // Validation
@@ -112,9 +117,14 @@ export const createProduct = async (req, res) => {
   }
 };
 
-// Update product
+// Update product (Admin & Super Admin only)
 export const updateProduct = async (req, res) => {
   try {
+    // Check role permissions - allow both admin and super_admin
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied. Admin or Super Admin role required.' });
+    }
+
     const { id } = req.params;
     const { name, description, current_price, is_active } = req.body;
 
@@ -154,9 +164,14 @@ export const updateProduct = async (req, res) => {
   }
 };
 
-// Delete product
+// Delete product (Admin & Super Admin only)
 export const deleteProduct = async (req, res) => {
   try {
+    // Check role permissions - allow both admin and super_admin
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied. Admin or Super Admin role required.' });
+    }
+
     const { id } = req.params;
 
     const product = await Product.findById(id);
@@ -174,9 +189,14 @@ export const deleteProduct = async (req, res) => {
   }
 };
 
-// Toggle product active status
+// Toggle product active status (Admin & Super Admin only)
 export const toggleProductStatus = async (req, res) => {
   try {
+    // Check role permissions - allow both admin and super_admin
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied. Admin or Super Admin role required.' });
+    }
+
     const { id } = req.params;
 
     const product = await Product.findById(id);

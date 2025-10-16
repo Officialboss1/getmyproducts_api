@@ -36,11 +36,14 @@ export const getOrders = async (req, res) => {
       ];
     }
 
-    // Role-based filtering: admins can only see orders they created
-    if (currentUser.role === 'admin') {
+    // Role-based filtering:
+    // - Salespersons: can only see orders they created
+    // - Admins: can only see orders they created
+    // - Super Admins: can see all orders
+    if (currentUser.role === 'salesperson' || currentUser.role === 'admin') {
       filter.created_by = currentUser._id;
     }
-    // Super admins can see all orders
+    // Super admins can see all orders (no filter applied)
 
     const skip = (pageNum - 1) * limitNum;
 
@@ -129,8 +132,12 @@ export const getOrder = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Check permissions: admins can only view orders they created
-    if (currentUser.role === 'admin' && order.created_by._id.toString() !== currentUser._id.toString()) {
+    // Check permissions:
+    // - Salespersons: can only view orders they created
+    // - Admins: can only view orders they created
+    // - Super Admins: can view all orders
+    if ((currentUser.role === 'salesperson' || currentUser.role === 'admin') &&
+        order.created_by._id.toString() !== currentUser._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to view this order' });
     }
 
@@ -217,8 +224,12 @@ export const updateOrder = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Check permissions: admins can only update orders they created
-    if (currentUser.role === 'admin' && order.created_by.toString() !== currentUser._id.toString()) {
+    // Check permissions:
+    // - Salespersons: can only update orders they created
+    // - Admins: can only update orders they created
+    // - Super Admins: can update all orders
+    if ((currentUser.role === 'salesperson' || currentUser.role === 'admin') &&
+        order.created_by.toString() !== currentUser._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to update this order' });
     }
 
@@ -294,8 +305,12 @@ export const deleteOrder = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Check permissions: admins can only delete orders they created
-    if (currentUser.role === 'admin' && order.created_by.toString() !== currentUser._id.toString()) {
+    // Check permissions:
+    // - Salespersons: can only delete orders they created
+    // - Admins: can only delete orders they created
+    // - Super Admins: can delete all orders
+    if ((currentUser.role === 'salesperson' || currentUser.role === 'admin') &&
+        order.created_by.toString() !== currentUser._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to delete this order' });
     }
 
@@ -321,8 +336,12 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Check permissions: admins can only update orders they created
-    if (currentUser.role === 'admin' && order.created_by.toString() !== currentUser._id.toString()) {
+    // Check permissions:
+    // - Salespersons: can only update orders they created
+    // - Admins: can only update orders they created
+    // - Super Admins: can update all orders
+    if ((currentUser.role === 'salesperson' || currentUser.role === 'admin') &&
+        order.created_by.toString() !== currentUser._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to update this order' });
     }
 
@@ -398,8 +417,11 @@ export const exportOrders = async (req, res) => {
 
     let filter = {};
 
-    // Role-based filtering for export
-    if (currentUser.role === 'admin') {
+    // Role-based filtering for export:
+    // - Salespersons: can only export orders they created
+    // - Admins: can only export orders they created
+    // - Super Admins: can export all orders
+    if (currentUser.role === 'salesperson' || currentUser.role === 'admin') {
       filter.created_by = currentUser._id;
     }
 

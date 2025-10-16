@@ -53,9 +53,11 @@ export const getSales = async (req, res) => {
     let filter = {};
 
     // Role-based filtering: salespeople can only see their own sales
+    // Admin and Super Admin can see all sales
     if (req.user.role === "salesperson") {
       filter.user_id = req.user._id;
     }
+    // Admin and Super Admin can see all sales (no filter applied)
 
     // Optional userId filter for admins (to view specific user's sales)
     const { userId, startDate, endDate, productId, page = 1, limit = 50 } = req.query;
