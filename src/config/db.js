@@ -1,11 +1,12 @@
 import mongoose from "mongoose";
 import dotenv from 'dotenv';
+import config from '../config/index.js';
 
 dotenv.config()
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
+    const conn = await mongoose.connect(config.mongoUri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

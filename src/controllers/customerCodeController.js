@@ -2,6 +2,7 @@ import CustomerCode from "../models/CustomerCode.js";
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import config from "../config/index.js";
 
 // Admin/Super Admin: generate new code
 export const generateCustomerCode = async (req, res) => {
@@ -93,7 +94,7 @@ await regCode.save();
     // 6. Generate JWT
     const token = jwt.sign(
       { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
+      config.jwtSecret,
       { expiresIn: "7d" }
     );
 

@@ -6,7 +6,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node --loader ./loader.cjs server.js",
+    "start:prod": "NODE_ENV=production node --loader ./loader.cjs server.js",
     "dev": "nodemon --loader ./loader.cjs server.js",
+    "dev:debug": "nodemon --loader ./loader.cjs --inspect server.js",
     "seed": "node --loader ./loader.cjs seeder.js",
     "test": "jest",
     "test:watch": "jest --watch",

@@ -4,9 +4,10 @@ import jwt from "jsonwebtoken";
 import CustomerCode from "../models/CustomerCode.js";
 import Referral from "../models/Referral.js";
 import nodemailer from "nodemailer";
+import config from "../config/index.js";
 
 const generateToken = (id, role) =>
-  jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "30d" });
+  jwt.sign({ id, role }, config.jwtSecret, { expiresIn: "30d" });
 
 // @desc    Register new user
 // @route   POST /api/auth/register
@@ -73,7 +74,7 @@ export const register = async (req, res) => {
     // JWT
     const token = jwt.sign(
       { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
+      config.jwtSecret,
       { expiresIn: "7d" }
     );
 
@@ -89,7 +90,6 @@ export const register = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("Register error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -120,7 +120,6 @@ export const loginUser = async (req, res) => {
 
 
   } catch (error) {
-    console.error("Error in loginUser:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -139,7 +138,7 @@ export const forgotPassword = async (req, res) => {
     // Generate reset token (JWT with short expiration)
     const resetToken = jwt.sign(
       { id: user._id, type: 'password_reset' },
-      process.env.JWT_SECRET,
+      config.jwtSecret,
       { expiresIn: '15m' }
     );
 
@@ -158,7 +157,7 @@ export const forgotPassword = async (req, res) => {
       }
     });
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+    const resetUrl = `${config.frontendUrl}/reset-password?token=${resetToken}`;
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
@@ -178,7 +177,6 @@ export const forgotPassword = async (req, res) => {
 
     res.json({ message: "Password reset email sent" });
   } catch (error) {
-    console.error("Forgot password error:", error);
     res.status(500).json({ message: "Failed to send reset email" });
   }
 };
@@ -194,7 +192,7 @@ export const resetPassword = async (req, res) => {
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, config.jwtSecret);
     if (decoded.type !== 'password_reset') {
       return res.status(400).json({ message: "Invalid reset token" });
     }
@@ -212,7 +210,6 @@ export const resetPassword = async (req, res) => {
     if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
       return res.status(400).json({ message: "Invalid or expired reset token" });
     }
-    console.error("Reset password error:", error);
     res.status(500).json({ message: "Failed to reset password" });
   }
 };

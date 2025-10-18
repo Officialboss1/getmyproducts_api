@@ -30,25 +30,20 @@ export const setTarget = async (req, res) => {
 // @desc Get a user’s target (admin can view any, user can only view own)
 export const getTarget = async (req, res) => {
   try {
-    console.log("getTarget called with params:", req.params);
-    console.log("req.user:", req.user);
 
     const requestedUserId = req.params.userId || req.user.id;
 
-    console.log("requestedUserId:", requestedUserId);
 
     if (req.user.role === "salesperson" && requestedUserId !== req.user.id) {
       return res.status(403).json({ message: "Forbidden: You can only view your own target" });
     }
 
     let target = await Target.findOne({ user_id: requestedUserId });
-    console.log("Target found:", target);
 
     if (!target) {
       target = { daily: 30, weekly: 210, monthly: 900 };
     }
 
-    console.log("Returning target:", target);
     res.json(target);
   } catch (error) {
     console.error("Get target error:", error);

@@ -26,6 +26,9 @@ import systemRoutes from './routes/systemRoutes.js';
 import errorHandler from './middlewares/errorHandler.js';
 import { apiLimiter } from './middlewares/rateLimitMiddleware.js';
 
+// Import configuration
+import config from './config/index.js';
+
 // Load environment variables
 dotenv.config();
 dotenvSafe.config({
@@ -39,26 +42,13 @@ connectDB();
 const app = express();
 const server = createServer(app);
 
-// Parse allowed origins from .env (comma separated)
-const allowedOrigins = process.env.FRONTEND_URLS
-  ? process.env.FRONTEND_URLS.split(",").map(url => url.trim())
-  : [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:3000",
-      "https://salestracker.silverspringbank.com"
-    ];
+// Parse allowed origins from config
+const allowedOrigins = config.frontendUrls;
 
 // Socket.IO setup for real-time chat
 const io = new Server(server, {
   cors: {
-    origin: [
-      "https://getmyproducts.com",
-      "https://salestracker.silverspringbank.com",
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:3000"
-    ],
+    origin: config.frontendUrls,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -124,7 +114,9 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: config.env,
+    nodeVersion: process.version,
+    uptime: process.uptime()
   });
 });
 

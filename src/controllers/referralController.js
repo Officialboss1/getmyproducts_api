@@ -3,9 +3,7 @@ import Referral from "../models/Referral.js";
 import Setting from "../models/Setting.js";
 import Sale from "../models/Sale.js";
 import { nanoid } from "nanoid";
-import dotenv from "dotenv";
-
-dotenv.config();
+import config from "../config/index.js";
 
 // This helper function is the core of our optimization.
 // It uses a single aggregation query to get all referral data,
@@ -72,7 +70,7 @@ export const getReferralLink = async (req, res) => {
       await user.save();
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const frontendUrl = config.frontendUrl;
     const referralLink = `${frontendUrl}/register?ref=${user.referralCode}`;
 
     res.json({ referralLink, code: user.referralCode });

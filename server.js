@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import connectDB from "./config/db.js";
+import connectDB from "./src/config/db.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
 
@@ -22,21 +22,18 @@ import settingRoutes from "./src/routes/settingRoutes.js";
 import superAdminRoutes from "./src/routes/superAdminRoutes.js";
 import systemRoutes from "./src/routes/systemRoutes.js";
 
+// Import configuration
+import config from "./src/config/index.js";
+import { setupProcessListeners, logSystemInfo } from "./src/utils/processManager.js";
+
 dotenv.config();
 connectDB();
 
 const app = express();
 const server = createServer(app);
 
-// Parse allowed origins from .env (comma separated)
-const allowedOrigins = process.env.FRONTEND_URLS
-  ? process.env.FRONTEND_URLS.split(",").map(url => url.trim())
-  : [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:3000",
-      "https://salestracker.silverspringbank.com"
-    ];
+// Parse allowed origins from config
+const allowedOrigins = config.frontendUrls;
 
 // CORS setup
 app.use(
@@ -82,16 +79,10 @@ app.use("/api/settings", settingRoutes);
 app.use("/api/super-admin", superAdminRoutes);
 app.use("/api/system", systemRoutes);
 
-// Socket.IO setup
+// Socket.IO setup with JWT authentication middleware
 const io = new Server(server, {
   cors: {
-    origin: [
-      "https://getmyproducts.com",
-      "https://salestracker.silverspringbank.com",
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:3000"
-    ],
+    origin: config.frontendUrls,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -99,6 +90,31 @@ const io = new Server(server, {
   allowEIO3: true,
   pingTimeout: 60000,
   pingInterval: 25000
+});
+
+// Socket.IO authentication middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token || socket.handshake.query.token;
+  if (!token) {
+    console.log('Socket connection rejected: No token provided');
+    return next(new Error('Authentication error: No token provided'));
+  }
+
+  // Verify JWT token (using the same method as the rest of the app)
+  import('jsonwebtoken').then(({ default: jwt }) => {
+    jwt.verify(token, config.jwtSecret, (err, decoded) => {
+      if (err) {
+        console.log('Socket connection rejected: Invalid token', err.message);
+        return next(new Error('Authentication error: Invalid token'));
+      }
+      socket.decodedToken = decoded;
+      console.log('Socket authenticated for user:', decoded.id || decoded._id);
+      next();
+    });
+  }).catch(err => {
+    console.error('JWT import error:', err);
+    next(new Error('Authentication error: Server configuration issue'));
+  });
 });
 
 console.log('Socket.IO server initialized with config:', {
@@ -170,7 +186,9 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
+    environment: config.env,
+    nodeVersion: process.version,
+    uptime: process.uptime(),
     socketIO: {
       enabled: true,
       transports: ['websocket', 'polling'],
@@ -185,16 +203,40 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: config.env,
+    nodeVersion: process.version,
+    uptime: process.uptime()
   });
 });
 
 // Make io accessible in routes
 app.set("io", io);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8001;
 const HOST = process.env.HOST || '0.0.0.0'; // ✅ Listen on all interfaces
+
+// Log system information
+logSystemInfo();
+
+
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} already in use. Retrying...`);
+    setTimeout(() => {
+      server.close();
+      server.listen(PORT);
+    }, 1000);
+  } else {
+    throw err;
+  }
+});
+
 
 server.listen(PORT, HOST, () => {
   console.log(`Server running on ${HOST}:${PORT}`);
+  console.log(`Environment: ${config.env}`);
 });
+
+// Setup process listeners for graceful shutdown
+setupProcessListeners(server, io);

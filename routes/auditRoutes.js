@@ -13,7 +13,7 @@ router.get("/", protect, adminOrSuper, getAuditLogs);
 router.get("/export", protect, adminOrSuper, exportAuditLogs);
 
 // Dashboard-specific endpoints
-router.get("/audit/recent", protect, adminOrSuper, getRecentAuditActivities);
+router.get("/recent", protect, adminOrSuper, getRecentAuditActivities);
 
 // Dev-only: expose a non-protected recent activities route for local testing
 if (process.env.NODE_ENV !== 'production') {

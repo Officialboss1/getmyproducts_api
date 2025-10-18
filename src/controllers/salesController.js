@@ -91,7 +91,6 @@ export const getSales = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get sales error:', error);
     res.status(500).json({ message: "Failed to fetch sales" });
   }
 };
@@ -195,7 +194,6 @@ export const getSalesSummary = async (req, res) => {
       topPerformers
     });
   } catch (error) {
-    console.error('Get sales summary error:', error);
     res.status(500).json({ message: 'Failed to fetch sales summary' });
   }
 };

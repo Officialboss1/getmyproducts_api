@@ -216,14 +216,11 @@ export const getSystemAnalytics = async (req, res) => {
 // USER PROGRESS
 export const getUserProgress = async (req, res) => {
   try {
-    console.log("getUserProgress called with params:", req.params, "query:", req.query);
-    console.log("req.user:", req.user);
 
     const { period = "monthly" } = req.query;
     const start = getPeriodRange(period);
     const requestedUserId = req.params.userId || req.user.id;
 
-    console.log("requestedUserId:", requestedUserId, "period:", period, "start:", start);
 
     if (req.user.role === "salesperson" && requestedUserId !== req.user.id) {
       return res.status(403).json({ message: "Forbidden: You can only view your own progress" });
@@ -240,14 +237,12 @@ export const getUserProgress = async (req, res) => {
       },
     ]);
 
-    console.log("Sales aggregation result:", sales);
 
     const totals = sales[0] || { totalUnits: 0, totalRevenue: 0 };
     let targetDoc = await Target.findOne({ user_id: requestedUserId });
     const defaults = { daily: 30, weekly: 210, monthly: 900 };
     const target = targetDoc && targetDoc[period] ? targetDoc[period] : defaults[period];
 
-    console.log("Target doc:", targetDoc, "target value:", target);
 
     const percentage = ((totals.totalUnits / target) * 100).toFixed(2);
     const status =
@@ -267,7 +262,6 @@ export const getUserProgress = async (req, res) => {
       status,
     };
 
-    console.log("Returning result:", result);
     res.json(result);
   } catch (error) {
     console.error("Progress error:", error);

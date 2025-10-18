@@ -77,7 +77,6 @@ export const createOrGetChatSession = async (req, res) => {
       });
 
       if (existingActiveChat) {
-        console.log('[DEBUG] Returning existing active support chat instead of creating new one:', existingActiveChat.chatId);
         return res.json({
           chatSession: existingActiveChat,
           chatId: existingActiveChat.chatId
@@ -127,7 +126,6 @@ export const createOrGetChatSession = async (req, res) => {
 
     // For support chats, always create a new chat session to avoid conflicts
     if (supportChat) {
-      console.log('[DEBUG] Creating new support chat session for user:', currentUser._id);
 
       // Find best admin to assign
       const assignedAdmin = await findBestAdminToAssign();
@@ -142,7 +140,6 @@ export const createOrGetChatSession = async (req, res) => {
       const participants = [currentUser._id.toString(), assignedAdmin._id.toString()].sort();
       chatId = `support_${participants.join('_')}_${timestamp}`;
 
-      console.log('[DEBUG] Generated unique chatId:', chatId);
 
       // Create new chat session
       const participantsArray = [
@@ -185,7 +182,6 @@ export const createOrGetChatSession = async (req, res) => {
         });
       }
 
-      console.log('[DEBUG] New support chat created successfully:', chatId);
       return res.json({
         chatSession: newChatSession,
         chatId: newChatSession.chatId
@@ -194,7 +190,6 @@ export const createOrGetChatSession = async (req, res) => {
 
     // Try to find existing chat session by chatId (for non-support chats)
     let chatSession = await ChatSession.findOne({ chatId });
-    console.log('[DEBUG] Existing chat session lookup:', { chatId, found: !!chatSession, status: chatSession?.status });
 
     if (!chatSession) {
       // Determine assigned admin based on user roles
@@ -207,7 +202,6 @@ export const createOrGetChatSession = async (req, res) => {
         assignedTo = targetUser._id;
         priority = 'medium';
         status = 'assigned'; // Auto-assigned support chats start as assigned
-        console.log('[DEBUG] Creating support chat with status:', status, 'assignedTo:', assignedTo);
       } else if (['customer', 'salesperson', 'team_head'].includes(currentUser.role)) {
         // User is requesting support - leave as open for admin assignment
         priority = 'medium';
@@ -288,11 +282,9 @@ export const sendMessage = async (req, res) => {
     const { chatId, message, messageType = 'text' } = req.body;
     const sender = req.user;
 
-    console.log('[DEBUG] sendMessage called with:', { chatId, message, messageType, senderId: sender._id, senderRole: sender.role });
 
     // Input validation
     if (!chatId || !message) {
-      console.log('[DEBUG] sendMessage validation failed: missing chatId or message');
       return res.status(400).json({ message: 'Chat ID and message are required' });
     }
 
@@ -310,15 +302,12 @@ export const sendMessage = async (req, res) => {
 
     // Verify chat session exists and user is participant
     const chatSession = await ChatSession.findOne({ chatId });
-    console.log('[DEBUG] Chat session lookup result:', { found: !!chatSession, status: chatSession?.status, participants: chatSession?.participants?.length });
     if (!chatSession) {
-      console.log('[DEBUG] Chat session not found for chatId:', chatId);
       return res.status(404).json({ message: 'Chat session not found' });
     }
 
     // Check if chat is resolved or closed (only resolved/closed chats are read-only)
     if (chatSession.status === 'resolved' || chatSession.status === 'closed') {
-      console.log('[DEBUG] Attempted to send message to resolved/closed chat:', chatId, 'status:', chatSession.status);
       return res.status(400).json({ message: 'Cannot send messages to resolved chat. Please start a new chat.' });
     }
 
@@ -331,11 +320,9 @@ export const sendMessage = async (req, res) => {
 
     const isSuperAdmin = sender.role === 'super_admin';
 
-    console.log('[DEBUG] Authorization check:', { isParticipant, isAssignedAdmin, isSuperAdmin, senderRole: sender.role });
 
     // Allow if: participant OR assigned admin OR admin/super_admin role
     if (!isParticipant && !isAssignedAdmin && !isSuperAdmin && !['admin', 'super_admin'].includes(sender.role)) {
-      console.log('[DEBUG] Authorization failed for user:', sender._id);
       return res.status(403).json({ message: 'Not authorized to send messages in this chat' });
     }
 
@@ -348,9 +335,7 @@ export const sendMessage = async (req, res) => {
       messageType
     });
 
-    console.log('[DEBUG] Creating chat message:', { chatId, senderId: sender._id, messageLength: message.length });
     await chatMessage.save();
-    console.log('[DEBUG] Chat message saved successfully, ID:', chatMessage._id);
 
     // Update chat session
     chatSession.lastMessage = new Date();
@@ -370,7 +355,6 @@ export const sendMessage = async (req, res) => {
     // Emit real-time message to other participants
     const io = req.app.get('io');
     if (io) {
-      console.log('[DEBUG] Emitting new-message event to room:', chatId);
       io.to(chatId).emit('new-message', {
         message: chatMessage,
         chatSession: {
@@ -380,16 +364,13 @@ export const sendMessage = async (req, res) => {
         }
       });
     } else {
-      console.log('[DEBUG] Socket.io not available, skipping real-time emit');
     }
 
-    console.log('[DEBUG] sendMessage completed successfully');
     res.json({
       message: chatMessage,
       chatSession
     });
   } catch (error) {
-    console.error('[DEBUG] Send message error:', error);
     res.status(500).json({ message: 'Failed to send message' });
   }
 };
@@ -491,13 +472,11 @@ export const getActiveChatSession = async (req, res) => {
     .sort({ lastMessage: -1 });
 
     if (activeChat) {
-      console.log('[DEBUG] Found active chat for user restoration:', activeChat.chatId);
       res.json({
         chatSession: activeChat,
         hasActiveChat: true
       });
     } else {
-      console.log('[DEBUG] No active chat found for user:', currentUser._id);
       res.json({
         hasActiveChat: false
       });

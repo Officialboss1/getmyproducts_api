@@ -6,9 +6,10 @@ import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import fs from "fs";
 import path from "path";
+import config from "../config/index.js";
 
 const generateToken = (id, role) =>
-  jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "30d" });
+  jwt.sign({ id, role }, config.jwtSecret, { expiresIn: "30d" });
 
 // Helper function to check if user can edit profile
 const canEditProfile = (editorRole, targetRole, isOwn) => {
@@ -56,7 +57,6 @@ export const registerUser = async (req, res) => {
       token: generateToken(user._id, user.role),
     });
   } catch (err) {
-    console.error("Register error:", err);
     res.status(500).json({ message: "Server error during registration" });
   }
 };
@@ -84,7 +84,6 @@ export const loginUser = async (req, res) => {
     },
   });
   } catch (err) {
-    console.error("Login error:", err);
     res.status(500).json({ message: "Server error during login" });
   }
 };
@@ -124,7 +123,6 @@ export const updateUserRole = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating user role:", error);
     res.status(500).json({ message: "Failed to update user role" });
   }
 };
@@ -174,7 +172,6 @@ export const createAdmin = async (req, res) => {
       role: user.role,
     });
   } catch (err) {
-    console.error("Create admin error:", err);
     res.status(500).json({ message: "Server error during admin creation" });
   }
 };
@@ -227,7 +224,6 @@ export const updateUser = async (req, res) => {
       user,
     });
   } catch (error) {
-    console.error("Error updating user:", error);
     res.status(500).json({ message: "Failed to update user" });
   }
 };
@@ -260,7 +256,6 @@ export const deleteUser = async (req, res) => {
 
     res.json({ message: "User deleted successfully" });
   } catch (error) {
-    console.error("Error deleting user:", error);
     res.status(500).json({ message: "Failed to delete user" });
   }
 };
@@ -331,7 +326,6 @@ export const getAllUsers = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("Get all users error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -395,7 +389,6 @@ export const sendMessage = async (req, res) => {
 
     res.json({ message: "Message sent successfully" });
   } catch (error) {
-    console.error("Send message error:", error);
     res.status(500).json({ message: "Failed to send message" });
   }
 };
@@ -416,7 +409,6 @@ export const getUserProfile = async (req, res) => {
 
     res.json({ user: targetUser });
   } catch (error) {
-    console.error("Get user profile error:", error);
     res.status(500).json({ message: "Failed to get user profile" });
   }
 };
@@ -472,7 +464,6 @@ export const updateUserProfile = async (req, res) => {
       user: targetUser,
     });
   } catch (error) {
-    console.error("Update user profile error:", error);
     res.status(500).json({ message: "Failed to update user profile" });
   }
 };
@@ -510,7 +501,6 @@ export const deleteAvatar = async (req, res) => {
 
     res.json({ message: "Avatar deleted successfully" });
   } catch (error) {
-    console.error("Delete avatar error:", error);
     res.status(500).json({ message: "Failed to delete avatar" });
   }
 };
